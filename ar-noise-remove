@@ -1,0 +1,100 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+#
+#  ar-noise-remove.py
+#  
+#  Copyright 2017 youcefsourani <youssef.m.sourani@gmail.com>
+#  
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+#  
+#  
+
+import os
+import sys
+import subprocess
+
+
+def is_mp4(video):
+	if os.path.isfile(video):
+		try:
+			check = subprocess.check_output("""file -b --mime-type "%s" """%video,shell=True).decode("utf-8").split("/")[1].strip()
+			if check == "mp4":
+				return True
+			else:
+				return False
+		except:
+			return False
+	else:
+		return False
+		
+		
+help_ = """
+Error Enter All options ,Example :
+	./ar-noise-remove  ~/Videos/myvideos.mp4  00:00:00 00:00:05 0.2
+"""
+
+
+if len(sys.argv)<5:
+	sys.exit(help_)
+	
+	
+video_location = sys.argv[1]
+print (video_location)
+noise_start = sys.argv[2]
+noise_end = sys.argv[3]
+power = sys.argv[4]
+
+video = os.path.abspath( os.path.expanduser(video_location) )
+print (video)
+if not is_mp4(video):
+	sys.exit("\nEnter MP4 Video Location.\n")
+
+video_dirname = os.path.dirname(video)
+print (video_dirname)
+video_name = os.path.split(video)[-1].split(".")
+print (video_name)
+
+
+def clean_():
+	subprocess.call("rm /tmp/arfedora_video.mp4 &>/dev/null",shell=True)
+	subprocess.call("rm /tmp/arfedora_audio.wav &>/dev/null",shell=True)
+	subprocess.call("rm /tmp/arfedora_noiseaud.wav &>/dev/null",shell=True)
+	subprocess.call("rm /tmp/arfedora_noise.prof &>/dev/null",shell=True)
+	subprocess.call("rm /tmp/arfedora_audio-clean.wav &>/dev/null",shell=True)
+clean_()
+
+
+def extract_video_audio(video):
+	subprocess.call("ffmpeg -i '%s' -map 0:0 -vcodec copy /tmp/arfedora_video.mp4 -map 0:1 -acodec copy /tmp/arfedora_audio.wav"%video,shell=True)
+extract_video_audio(video)
+
+def noise_remove(video):
+	subprocess.call("ffmpeg -i '%s' -vn -ss %s -t %s /tmp/arfedora_noiseaud.wav"%(video , noise_start, noise_end),shell=True)
+	subprocess.call("sox /tmp/arfedora_noiseaud.wav -n noiseprof /tmp/arfedora_noise.prof",shell=True)
+	subprocess.call("sox -t mp3  /tmp/arfedora_audio.wav /tmp/arfedora_audio-clean.wav noisered /tmp/arfedora_noise.prof %s"%power,shell=True)
+	count = 0
+	video_out = os.path.join( video_dirname,"arfedora_"+video_name[0]+"-new%s_%s.mp4"%(power, str(count)))
+	while True:
+		if os.path.exists(video_out):
+			count +=1
+			video_out = os.path.join( video_dirname,"arfedora_"+video_name[0]+"-new%s_%s.mp4"%(power, str(count)))
+		else:
+			break
+			
+	subprocess.call("ffmpeg -i /tmp/arfedora_video.mp4 -i /tmp/arfedora_audio-clean.wav '%s'"%video_out,shell=True)
+noise_remove(video)
+
+clean_()
